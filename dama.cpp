@@ -3,7 +3,7 @@
 
 Dama::Dama(bool color):Figurka(color){//:Strelec(color,sachovnice),Vez (color,sachovnice){
     hodnota = 900;
-    pos = 4;
+    pos = tabulka = 4;
 }
 
 bool Dama::moznosti(int x, int y, int cilX, int cilY, Sachovnice *sachovnice, bool kdoVola){

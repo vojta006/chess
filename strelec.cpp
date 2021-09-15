@@ -3,7 +3,7 @@
 
 Strelec::Strelec(bool color):Figurka(color){
     hodnota = 320;
-    pos = 2;
+    pos = tabulka =  2;
 }
 
 bool Strelec::moznosti(int x, int y, int cilX, int cilY, Sachovnice *s, bool kdoVola){
@@ -18,3 +18,4 @@ Figurka *Strelec::vytvor(){
     v->tahnuto=this->tahnuto;
     return v;
 }
+

@@ -1,13 +1,13 @@
 #ifndef FIGURKA_H
 #define FIGURKA_H
 #include <SDL/SDL.h>
-#include <iostream>
+//#include <iostream>
 
 class Sachovnice;
 class Figurka
 {
 public:
-    int pos;
+    int pos,tabulka;
     int hodnota;
     bool tahnuto;
     bool barva;
@@ -21,6 +21,7 @@ public:
     virtual bool pozorSach(int x,int y,Sachovnice *s);
     virtual void tazeno(int stareX, int stareY, int noveX, int noveY,Sachovnice *s,bool ai = 0);
     virtual bool moznosti(int x, int y , int cilX, int cilY, Sachovnice *s, bool kdoVola = 0); //informace o tom, ze bylo s figurkou tazeno, napr. rosada
+    virtual ~Figurka();
 };
 
 

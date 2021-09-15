@@ -3,7 +3,7 @@
 
 Vez::Vez(bool color): Figurka(color){
     hodnota = 500;
-    pos = 3;
+    pos = tabulka = 3;
 }
 
 bool Vez::moznosti(int x, int y, int cilX, int cilY, Sachovnice *sachovnice, bool kdoVola){
@@ -17,3 +17,6 @@ Figurka *Vez::vytvor(){
     v->tahnuto = this->tahnuto;
     return v;
 }
+
+
+

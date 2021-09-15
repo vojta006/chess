@@ -4,7 +4,7 @@
 
 Kral::Kral(bool color): Figurka(color){
     hodnota = 1000;
-    pos = 5;
+    pos = tabulka = 5;
 }
 
 bool Kral::moznosti(int x, int y, int cilX, int cilY, Sachovnice *s,bool kdoVola){
@@ -33,6 +33,7 @@ bool Kral::pozorSach(int kX, int kY, Sachovnice *s){ //je konkretni policko ohro
 
     return false;
 }
+
 
 Figurka *Kral::vytvor(){return new Kral(*this);};
 

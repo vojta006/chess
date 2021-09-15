@@ -10,6 +10,7 @@ public:
     Figurka *vytvor();
     void tazeno(int stareX, int stareY, int noveX, int noveY,Sachovnice *s,bool ai = 0);
     bool moznosti(int x, int y , int cilX, int cilY, Sachovnice *s,bool kdoVola = 0);
+    ~Pesec();
 };
 
 

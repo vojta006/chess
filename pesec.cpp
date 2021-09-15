@@ -5,7 +5,7 @@
 
 Pesec::Pesec(bool color):Figurka(color){
     hodnota = 100;
-    pos = 0;
+    pos = tabulka = 0;
 }
 
 bool Pesec::moznosti(int x, int y, int cilX, int cilY, Sachovnice *s, bool kdoVola){ //kdoVola jednicka, kdyz jde o ohrozeni
@@ -25,29 +25,31 @@ bool Pesec::moznosti(int x, int y, int cilX, int cilY, Sachovnice *s, bool kdoVo
             && s->minule[s->Hloubka][0]==cilX && s->minule[s->Hloubka][1] == y){
         return true;
     }
-
     return false;
 }
 
 void Pesec::tazeno(int stareX, int stareY, int noveX, int noveY, Sachovnice *s, bool ai){
     if(abs(stareY - noveY) == 2) s->minule[s->Hloubka+1][0] = noveX , s->minule[s->Hloubka+1][1] = noveY; //pesec sel o dve policka
-    if(stareX!=noveX && ((barva && noveX == 3)||(!barva && noveX ==5)) && s->pole[noveX][stareY] && s->minule[s->Hloubka][0]==noveX && s->minule[s->Hloubka][1]==stareY){
+
+    if(stareX!=noveX && ((barva && noveY == 2)||(!barva && noveY == 5)) && s->pole[noveX][stareY] && s->minule[s->Hloubka][0]==noveX && s->minule[s->Hloubka][1]==stareY){
         s->mimochodem[s->Hloubka] = s->pole[noveX][stareY];
         s->pole[noveX][stareY]=NULL;
-        //volani++;
     }
     tahnuto = true;
     if(!ai && (noveY==7||noveY==0)){ //pesec dojde na konec sachovnice
         aktivni = menu;
-        menu->nactiPesec(barva,noveX,noveY);
+        menu->nactiPesec(barva,noveX,noveY); //vybrani figurky
     }
-    if(ai && (noveY==7||noveY==0)) {
+    if(ai && (noveY==7||noveY==0)) { //ai si nevybira figurku, nebot
         s->pole[noveX][noveY] = new Dama(barva);
     }
 }
+
+Pesec::~Pesec(){}
 
 Figurka *Pesec::vytvor(){
     Pesec *p =new Pesec(barva);
     p->tahnuto=this->tahnuto;
     return p;
 }
+

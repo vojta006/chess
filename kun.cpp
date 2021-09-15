@@ -4,7 +4,7 @@
 
 Kun::Kun(bool color): Figurka(color){
     hodnota = 310;
-    pos = 1;
+    pos = tabulka = 1;
 }
 
 bool Kun::moznosti(int x, int y, int cilX, int cilY, Sachovnice *s,bool kdoVola){

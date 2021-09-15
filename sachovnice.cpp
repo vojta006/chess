@@ -11,9 +11,8 @@
 
 Sachovnice::Sachovnice(){
     figX = figY = 8;
-    CkY = kresli_hodnoceni = Hloubka  = pocetTahu =  koncovka =0;
-    minX = minY= 3;
-    histVrat = -1;
+    CkY = kresli_hodnoceni = Hloubka  = pocetTahu  = hraniOnline = histVrat = 0;
+    minX = minY= hlTrasa = 3;
     tah = BILAFIG;
     SDL_WM_SetCaption("Chess",NULL);
     matBila = IMG_Load("figures/bily_vyhra.png");
@@ -23,13 +22,18 @@ Sachovnice::Sachovnice(){
     obrysM = IMG_Load("figures/obrysModra.png");
     obrysZ = IMG_Load("figures/obrysZluta.png");
     obrysC = IMG_Load("figures/obrysCervena.png");
+    Menu = IMG_Load("figures/menu.png");
     Bila = IMG_Load("figures/bila.png");
+    figurky = IMG_Load("figures/figurky_mensi.png");
     BkX=CkX=4; BkY=7; //bila kral Y,X
     generuj =true;
     okraj  = 20;
     policko = 80;
+    nazev = "sachy"; //nazev mistnosti
+    hloubkaBila = hloubkaCerna =  MAX_HLOUBKA;
+    diblik = NULL;
 
-    for(int a= 0; a<8;a++) for(int b= 0;b<8;b++) pole[a][b]=NULL;
+    memset(pole,0,sizeof(pole));
 
     for(int j=0;j<8;j++) //zajistit pat pri nedostatecnem poctu figur
     {
@@ -46,9 +50,15 @@ Sachovnice::Sachovnice(){
         pole[4][7*k]=new Kral(BILAFIG*k);
         pole[3][7*k]=new Dama(BILAFIG*k);
     }
+    historie.push_back(new Sachovnice(1)); //ulozeni prvni sachovnice
+    historie.back()->zkopiruj(this);
 }
 
+Sachovnice::Sachovnice(bool copy){ copy = 1; memset(pole,0,sizeof(pole)); }
+
 void Sachovnice::kresli(){
+    if(diblik)
+       diblik->posta(); //kontrola, jestli neco neprislo
     if(!prekresli) return;
     prekresli = false;
     SDL_Rect dst,src;
@@ -70,7 +80,7 @@ void Sachovnice::kresli(){
         for(int b= 0;b<8;b++)
             if(pole[a][b]){
                 dst.x = a*policko+okraj, dst.y= b*policko+okraj;
-                src.x = pole[a][b]->pos*policko;
+                src.x = pole[a][b]->tabulka*policko;
                 src.y = pole[a][b]->barva?0:policko;
                 SDL_BlitSurface(figurky,&src,screen,&dst);
             }
@@ -83,13 +93,15 @@ void Sachovnice::kresli(){
     dst.x = 680;
     dst.y = 340 - hodnoceni()/5;
     SDL_BlitSurface(Bila,NULL,screen,&dst);
+    dst.x = 740;
+    dst.y = 10;
+    SDL_BlitSurface(Menu,NULL,screen,&dst);
 
     if(generuj){ //vytvari se nove tahy
         generuj = false;
         tahy.clear();
         generujTahy(0,tah?-1e9:1e9,0);
-        pridej();
-        if(!tahy.size()){
+        if(!tahy.size()){ //konec hry
             hraj = false;
             SDL_Rect dst;
             dst.x = 720, dst.y = 200;
@@ -114,7 +126,7 @@ void Sachovnice::klik(int MysX, int MysY){
             if(mozno){ //posun figurky
                 posun(figX,figY,x,y,minule[0][0],minule[0][1]);
                 rosada[tah] = false;
-                dalsiTah();
+                dalsiTah(1); //jestli se ma tah odeslat
                 sach = pole[tah? BkX:CkX][tah? BkY:CkY]->pozorSach(tah? BkX:CkX,tah? BkY:CkY,this);
             }
             else{ //jiz vybrana firugka, vybrani jineho pole, kam nelze vstoupit
@@ -130,21 +142,32 @@ void Sachovnice::klik(int MysX, int MysY){
             prekresli = true;
         }
     }
+    else if(MysX>740 && MysY>10 && MysX<840 && MysY<60){ aktivni = menu; prekresli = true;} //obrazek menu
 }
 
-void Sachovnice::dalsiTah(){
+void Sachovnice::dalsiTah(bool posli){ //informuj diblika o tahu
     tah =!tah;
     prekresli = generuj = true;
     klikPosun = sach =  false;
     kresli_hodnoceni = hodnoceni();
-    pocetTahu++;
-    if(!koncovka && (material(BILAFIG)<2000||material(CERNAFIG)<2000)){
-        koncovka = true;
-        for(int x = 0; x<8; x++)
-            for(int y = 0; y<8; y++){
-                hodnoty[5][x][y] = hodnoty[2][x][y];
-                hodnoty[0][x][y]  = konec[x][y];
-            }
+    pridej();
+    int mB = material(BILAFIG),mC = material(CERNAFIG);
+    bool bilaPod = mB<=2100? 1:0;
+
+    if(hraniOnline && posli) diblik->odeslatTah(); //informovat server
+
+    if(mB<mC-600 && hloubkaBila==4)
+        hloubkaBila = 6;
+    if(mC<mB-600 && hloubkaBila==4)
+        hloubkaCerna = 6;
+
+    if((mB<=2100||mC<=2100) && pole[bilaPod?BkX:CkX][bilaPod?BkY:CkY]->pos == 5){ //zmena hodnoceni pozice krale a pesce
+        if(bilaPod) hloubkaBila++;
+        else hloubkaCerna++;
+        pole[bilaPod?BkX:CkX][bilaPod?BkY:CkY]->pos = 2; //zmena bodovani krale, ktery ma material pod 2100
+        for(int x = 0; x<8; x++) //zmena pos ve vsech pescich patricich k dane barve
+            for(int y = 0; y<8; y++)
+                if(pole[x][y] && pole[x][y]->tabulka == 0 && pole[x][y]->barva == bilaPod) pole[x][y]->pos = 7;
     }
 }
 
@@ -161,57 +184,67 @@ int Sachovnice::hodnoceni(){ //hodnoceni i pozice
 }
 
 int Sachovnice::material(bool barva){
-     int hodnota = 0;
-     for(int i = 0; i< 8; i++){
-         for(int j =0; j< 8; j++){
-             if(pole[i][j] && pole[i][j]->barva == barva)
-                 hodnota += pole[i][j]->hodnota;
-         }
-     }
-     return hodnota;
+    int hodnota = 0;
+    for(int i = 0; i< 8; i++){
+        for(int j =0; j< 8; j++){
+            if(pole[i][j] && pole[i][j]->barva == barva)
+                hodnota += pole[i][j]->hodnota;
+        }
+    }
+    return hodnota;
 }
 
-void Sachovnice::zkopiruj(Sachovnice *zdroj, bool prekresli){
+Sachovnice::~Sachovnice(){
+    if(diblik) diblik->~Komunikace();
+}
+
+void Sachovnice::zkopiruj(Sachovnice *zdroj){
     for(int a= 0; a<8;a++)
         for(int b= 0;b<8;b++){
-            //if(pole[a][b]) delete pole[a][b];
+            if(pole[a][b]) delete pole[a][b];
             pole[a][b] = zdroj->pole[a][b]?zdroj->pole[a][b]->vytvor():NULL; //vytvori se nove figurky - posilat adresu teto sachovnice
-            }
+        }
     tah=zdroj->tah;
     BkX=zdroj->BkX;
     BkY=zdroj->BkY;
     CkX=zdroj->CkX;
     CkY=zdroj->CkY;
-
-    if(prekresli){
-        pocetTahu = zdroj->pocetTahu;
-        minule[0][0] = zdroj->minule[0][0];
-        minule[0][1] = zdroj->minule[0][1];
-        this->prekresli = true;
-        generuj = true; //muze se zmenit, kdo tahne
-    }
+    pocetTahu = zdroj->pocetTahu;
+    minule[0][0] = zdroj->minule[0][0];
+    minule[0][1] = zdroj->minule[0][1];
+    this->prekresli = true;
+    generuj = true; //muze se zmenit, kdo tahne
     klikPosun = false;
 }
 
 void Sachovnice::pridej(){
-    if(pocetTahu == (int)historie.size()){ //novy tah
-        historie.push_back(new Sachovnice(*this));
+    if(pocetTahu+1 == (int)historie.size()){ //novy tah
+        historie.push_back(new Sachovnice(1));
         historie.back()->zkopiruj(this);
-        histVrat++;
+        pocetTahu++;
+        if(pocetTahu>1)
+            histVrat++;
     }
-    else if(pocetTahu+1 == (int)historie.size()){ //vraceni jeden tah zpet
-        historie[pocetTahu] = new Sachovnice(*this);
+    else if(pocetTahu+2 == (int)historie.size()&&hlTrasa){ //vraceni jeden tah zpet
+        historie[pocetTahu]->zkopiruj(this);
+        historie.pop_back(); //smazani posledniho prvku
+    }
+    else{ //zvoleni jineho tahu pred vice nez jednim tahem
+        hlTrasa = false;
     }
 }
 
 void Sachovnice::vrat(bool dopredu){
     if(dopredu){
-        if(pocetTahu+1<(int)historie.size()){
-            zkopiruj(historie[pocetTahu+1],1);
+        if(hlTrasa && pocetTahu+2<(int)historie.size()){
+            zkopiruj(historie[pocetTahu+2]);
+            histVrat++;
         }
     }
-    else if(histVrat>0){
-        zkopiruj(historie[pocetTahu-1],1);
+    else{
+        zkopiruj(historie[histVrat]);
+        hlTrasa = true;
+        if(histVrat) histVrat--;
     }
 }
 
@@ -222,54 +255,6 @@ void Sachovnice::posun(int stareX, int stareY, int noveX, int noveY, int &minX, 
     minX = noveX; minY = noveY;
     historieTahy.push_back({stareX,stareY,noveX,noveY,hodnoceni()});
 }
-
-
-//int Sachovnice::generujTahy(int max_hloubka, int srovnani,int material){
-//    int kX,kY,aktualni = tah?-1e9:1e9,sKX = tah? CkX:BkX,sKY = tah? CkY:BkY,nej = tah?-1e9:1e9,moznychTahu = 0; //nejlepsi hodnota v jedne funkci
-//    bool tahnuto,vyhozeni,matProti = false;
-//    Figurka * zalohy[2]; //prvni je startovaci policko, druhe je cilove policko
-
-//    for(int x = 0; x<8; x++) for(int y = 0; y<8; y++)
-//        if(pole[x][y] && pole[x][y]->barva == tah)
-
-//            for(int cil_x = 0; cil_x < 8; cil_x++) for(int cil_y = 0; cil_y < 8; cil_y++)
-//                if(pole[x][y]->moznosti(x,y,cil_x,cil_y,this)){
-
-//                    tahnuto = pole[x][y]->tahnuto, zalohy[0] = pole[x][y], zalohy[1]=pole[cil_x][cil_y]; //zaloha figurek
-//                    vyhozeni = pole[cil_x][cil_y]? 1:0; //doslo k vyhozeni figurky
-
-//                    pole[cil_x][cil_y] = pole[x][y];
-//                    pole[x][y] = NULL;
-//                    pole[cil_x][cil_y]->tazeno(x,y,cil_x,cil_y,this,1);
-
-//                    kX = tah?BkX:CkX,kY = tah? BkY:CkY; //nastaveni souradnic krale
-
-//                    if(!pole[kX][kY]->pozorSach(kX,kY,this)){ //mozny tah
-
-//                        if(pole[sKX][sKY]->pozorSach(sKX,sKY,this) && test!=this){ //souper je v sachu
-//                            test->zkopiruj(this),test->tah =!tah;
-//                            aktualni = test->generujTahy(0,tah?-1e9:1e9);
-//                            if(aktualni == 1e9 || aktualni == -1e9) matProti = true;//nenalezen tah
-//                        }
-
-//                        if((Hloubka == max_hloubka || (vyhozeni? 0:material+1) > ZMENA_FIGUREK) && !matProti) aktualni = hodnoceni();
-//                        else if(!matProti){tah=!tah; Hloubka++; aktualni = generujTahy(max_hloubka,nej,vyhozeni? 0:material+1); Hloubka--; tah =!tah;}
-//                        if(!Hloubka)
-//                            tahy.push_back({x,y,cil_x,cil_y,aktualni});
-//                    }
-//                    pole[x][y] = zalohy[0];
-//                    pole[cil_x][cil_y] = zalohy[1]; //vraceni vyhozene figurky
-//                    if(kX == cil_x && kY == cil_y) pole[x][y]->tazeno(cil_x,cil_y,x,y,this); //vraceni figurky
-//                    pole[x][y]->tahnuto = tahnuto;
-//                    if(mimochodem[Hloubka]){ pole[cil_x][y] = mimochodem[Hloubka];  mimochodem[Hloubka] = NULL;} //vraceni brani mimochodem
-//                    if((tah && nej<aktualni)||(!tah && nej>aktualni) || matProti){ nej = aktualni; if(test == this) return aktualni;} //nalezena nejaka hodnota
-//                    if(Hloubka && ((tah && srovnani < aktualni)||(!tah && srovnani > aktualni))){
-//                        return aktualni;
-//                    }
-//                }
-//    return nej;
-//}
-
 
 int Sachovnice::generujTahy(int max_hloubka, int srovnani,int material){
     int kX = tah?BkX:CkX,kY = tah? BkY:CkY,aktualni = tah?-1e9:1e9,nej = tah?-1e9:1e9; //nejlepsi hodnota v jedne funkci
@@ -285,7 +270,7 @@ int Sachovnice::generujTahy(int max_hloubka, int srovnani,int material){
                     tahnuto = pole[x][y]->tahnuto, zalohy[0] = pole[x][y], zalohy[1]=pole[cil_x][cil_y]; //zaloha figurek
                     vyhozeni = pole[cil_x][cil_y]? 1:0; //doslo k vyhozeni figurky
 
-                    pole[cil_x][cil_y] = pole[x][y];
+                    pole[cil_x][cil_y] = pole[x][y]; //posunuti figurkou
                     pole[x][y] = NULL;
                     pole[cil_x][cil_y]->tazeno(x,y,cil_x,cil_y,this,1);
 
@@ -295,10 +280,10 @@ int Sachovnice::generujTahy(int max_hloubka, int srovnani,int material){
 
                         if (Hloubka == max_hloubka || (vyhozeni? 0:material+1) > ZMENA_FIGUREK ) aktualni = hodnoceni();
                         else {tah=!tah; Hloubka++; aktualni = generujTahy(max_hloubka,nej,vyhozeni? 0:material+1); Hloubka--; tah =!tah;}
-                        if(!Hloubka)
-                            tahy.push_back({x,y,cil_x,cil_y,aktualni});
+                        if(!Hloubka){tahy.push_back({x,y,cil_x,cil_y,aktualni}); printf("%d\r",(int)tahy.size());fflush(stdout);}
+                        if(Hloubka==1) aktualni+=hodnoceni();
                     }
-                    pole[x][y] = zalohy[0];
+                    pole[x][y] = zalohy[0]; //posunuti figurky zpet
                     pole[cil_x][cil_y] = zalohy[1]; //vraceni vyhozene figurky
                     if(kX == cil_x && kY == cil_y) {pole[x][y]->tazeno(cil_x,cil_y,x,y,this); kX = tah?BkX:CkX,kY = tah?BkY:CkY;} //vraceni figurky
                     pole[x][y]->tahnuto = tahnuto;
@@ -308,29 +293,8 @@ int Sachovnice::generujTahy(int max_hloubka, int srovnani,int material){
                         return aktualni;
                     }
                 }
-
     if(!nalezenTah) //zadny tah, pat, nebo mat
         if(!pole[kX][kY]->pozorSach(kX,kY,this)) return -nej; //neni sach; je pat
 
     return nej;
 }
-
-//pojistit proti patu
-//udelat pojistku proti opakovani tahu
-//udelat historii
-
-//bool Sachovnice::overeni(Figurka *kontrolni[8][8]){
-//    for(int i =0; i< 8;i++)
-//        for(int j =0; j< 8;j++)
-//            if(kontrolni[i][j] != pole[i][j]){
-//                return true;
-//            }
-
-//    return false;
-//}
-
-//void Sachovnice::zalohuj(Figurka *(*zdroj)[8], Figurka *(*cil)[8]){
-//    for(int a= 0; a<8;a++)
-//        for(int b= 0;b<8;b++)
-//            cil[a][b] = zdroj[a][b];
-//}

@@ -1,30 +1,27 @@
-#include <SDL/SDL.h>
 #include <SDL/SDL_image.h>
 #include "main.h"
 #include "ai.h"
 
 Screen *aktivni;
-Sachovnice *sachovnice,*zaloha,*test;
+Sachovnice *sachovnice;
 Menu *menu;
 int volani;
 SDL_Surface *screen;
-SDL_Surface *figurky;
 bool hraj = false;
 std::vector<Sachovnice*> historie;
 
 int main(int argc,char *argv[])
 {
-    figurky = IMG_Load("figures/figures_mensi.png");
     if(SDL_Init(SDL_INIT_VIDEO)){ printf("SDL_Init() selhalo: %s\n", SDL_GetError()); exit(1);}
     screen = SDL_SetVideoMode(1000,680,0,0);
-    test = new Sachovnice;
-    sachovnice = new Sachovnice;
+    aktivni  = sachovnice = new Sachovnice;
     menu = new Menu;
-    aktivni = sachovnice;
-    zaloha = new Sachovnice;
+
     while(1){
 
+        SDL_Delay(10);
         aktivni->kresli();
+
         if(hraj) ai();
 
         SDL_Event event;
@@ -40,13 +37,13 @@ int main(int argc,char *argv[])
                 switch(event.key.keysym.sym)
                 {
                 case SDLK_ESCAPE:
-                    SDL_Quit();
-                    return 0;
+                    menu->konecHry();
+                    break;
                 case SDLK_a:
                     ai();
                     break;
                 case SDLK_i:
-                    hraj = !hraj;
+                    hraj = !hraj; //automaticke hrani
                     break;
                 case SDLK_b:
                     sachovnice->vrat(0); //dozadu

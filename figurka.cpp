@@ -10,8 +10,6 @@ Figurka::Figurka(bool color):barva(color)
     tahnuto = false;
 }
 
-//void Figurka::tazeno(){ tahnuto = true;}
-
 void Figurka::tazeno(int stareX, int stareY, int noveX, int noveY, Sachovnice *s, bool ai){tahnuto=true;}
 
 bool Figurka::vratbarvu(){return barva;}
@@ -38,3 +36,5 @@ bool Figurka::moznosti(int x, int y, int cilX, int cilY, Sachovnice *s, bool kdo
     }
     return true;
 }
+Figurka::~Figurka(){}
+
